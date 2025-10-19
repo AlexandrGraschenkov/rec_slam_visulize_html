@@ -5,7 +5,7 @@ st.set_page_config(page_title="Road Events Visualizer", layout="wide")
 
 st.title("🚗 Road Events Visualizer")
 
-url = st.text_input("URL папки на Яндекс.Диске:", placeholder="https://disk.yandex.ru/d/...")
+url = st.text_input("URL папки на Яндекс.Диске :", placeholder="https://disk.yandex.ru/d/...")
 
 if url:
     try:
