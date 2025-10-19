@@ -1,0 +1,9 @@
+# OS X
+.DS_Store
+
+# Xcode
+htmls
+index.html
+example_record*
+.vscode
+__pycache__
