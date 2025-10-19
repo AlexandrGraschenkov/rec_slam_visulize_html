@@ -10,6 +10,45 @@ from data_parser import DataParser
 from yandex_downloader import YandexDownloader
 from html_generator import HTMLGenerator
 
+def generate_html_from_yandex(url: str) -> str:
+    """
+    Генерирует HTML из данных с Яндекс.Диска и возвращает как строку.
+    
+    Args:
+        url: URL папки на Яндекс.Диске
+        
+    Returns:
+        HTML содержимое как строка
+    """
+    # Инициализируем компоненты
+    data_parser = DataParser()
+    yandex_downloader = YandexDownloader()
+    html_generator = HTMLGenerator()
+    
+    # Загружаем с Яндекс.Диска
+    loaded_data = yandex_downloader.get_data_from_yandex_disk(url)
+    
+    if not loaded_data:
+        raise Exception("Не удалось загрузить необходимые файлы")
+    
+    # Парсим данные
+    gps_data = data_parser.parse_gps_data(loaded_data.get('gps.csv'))
+    events = data_parser.parse_detections_data(loaded_data.get('detections.json'))
+    device_info = data_parser.parse_device_info(loaded_data.get('device.txt'))
+    
+    # Парсим временные метки
+    times_data = None
+    if 'times_full.json' in loaded_data:
+        times_data = data_parser.parse_times_data(loaded_data.get('times_full.json'))
+    
+    # Получаем ссылки на видео
+    video_urls = yandex_downloader.get_video_urls_from_yandex_disk(url)
+    video_files = list(video_urls.values())
+    
+    # Генерируем HTML и возвращаем как строку
+    return html_generator.generate_html(gps_data, events, device_info, video_files, None, times_data)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Генерация HTML для просмотра поездки')
     parser.add_argument('input', help='URL Яндекс.Диска или путь к папке с данными')
@@ -111,7 +150,7 @@ def main():
         
         # Генерируем HTML
         print("Генерация HTML...")
-        html_generator.generate_html(gps_data, events, device_info, video_files, args.output, times_data)
+        html_content = html_generator.generate_html(gps_data, events, device_info, video_files, args.output, times_data)
         
         print("Готово!")
         

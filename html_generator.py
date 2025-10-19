@@ -605,8 +605,8 @@ class HTMLGenerator:
 </html>"""
     
     def generate_html(self, gps_data: List[Dict[str, Any]], events: List[Dict[str, Any]], 
-                     device_info: Dict[str, Any], video_files: List[str], output_file: str, 
-                     times_data: Dict[str, Any] = None) -> None:
+                     device_info: Dict[str, Any], video_files: List[str], output_file: str = None, 
+                     times_data: Dict[str, Any] = None) -> str:
         """
         Генерирует HTML страницу.
         
@@ -652,10 +652,14 @@ class HTMLGenerator:
             end_time=end_time
         )
         
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+        # Если указан файл, сохраняем в файл
+        if output_file:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            print("HTML файл создан: {}".format(output_file))
         
-        print("HTML файл создан: {}".format(output_file))
+        # Возвращаем HTML как строку
+        return html_content
     
     def _generate_device_info_html(self, device_info: Dict[str, Any]) -> str:
         """Генерирует HTML для информации об устройстве."""
