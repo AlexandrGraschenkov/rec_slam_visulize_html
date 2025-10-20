@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр поездки - SLAM Visualizer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .left-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #ddd;
+            min-width: 300px;
+            background: white;
+        }
+        
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 300px;
+        }
+        
+        .resize-handle {
+            width: 4px;
+            background: #ddd;
+            cursor: col-resize;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+        
+        .resize-handle:hover {
+            background: #007bff;
+        }
+        
+        .header {
+            background: #007bff;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .url-input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .url-input {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            min-width: 300px;
+        }
+        
+        .load-btn {
+            padding: 8px 16px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .load-btn:hover {
+            background: #218838;
+        }
+        
+        .load-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .device-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+        
+        .device-info:hover {
+            background: #e9ecef;
+        }
+        
+        .device-info h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #495057;
+        }
+        
+        .device-details {
+            display: none;
+            font-size: 13px;
+            color: #6c757d;
+            line-height: 1.4;
+        }
+        
+        .device-details.show {
+            display: block;
+        }
+        
+        .video-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            min-height: 0;
+            overflow: hidden;
+        }
+        
+        .video-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+            min-height: 0;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .video-player {
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+        
+        .video-switcher {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        
+        .video-switch-btn {
+            padding: 6px 12px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        
+        .video-switch-btn.active {
+            background: #007bff;
+        }
+        
+        .video-switch-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .timeline {
+            height: 80px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            position: relative;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-bottom: 15px;
+        }
+        
+        .timeline-marker {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: #dc3545;
+            z-index: 10;
+            border-radius: 1px;
+        }
+        
+        .timeline-event {
+            position: absolute;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            transform: translateX(-50%);
+            z-index: 5;
+            opacity: 0.8;
+            border-radius: 2px;
+        }
+        
+        .event-pothole { background: #dc3545; }
+        .event-erased_markings { background: #fd7e14; }
+        .event-garbage_on_road { background: #28a745; }
+        .event-damaged_sign { background: #6f42c1; }
+        .event-manual { background: #007bff; }
+        .event-default { background: #6c757d; }
+        
+        .map-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #map {
+            flex: 1;
+            width: 100%;
+        }
+        
+        .controls {
+            padding: 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .play-pause-btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .play-pause-btn:hover {
+            background: #0056b3;
+        }
+        
+        .time-display {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            margin: 15px;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .arrow-marker {
+            background: transparent !important;
+            border: none !important;
+        }
+        
+        .no-data {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6c757d;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <div class="header">
+                <h1>SLAM Visualizer</h1>
+                <div class="url-input-container">
+                    <input type="text" class="url-input" id="yandexUrl" placeholder="Введите URL папки Яндекс.Диска">
+                    <button class="load-btn" id="loadBtn" onclick="loadData()">Загрузить</button>
+                </div>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>Загрузка данных...</div>
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+            
+            <div class="device-info" id="deviceInfo" onclick="toggleDeviceInfo()" style="display: none;">
+                <h3>Информация об устройстве</h3>
+                <div class="device-details" id="deviceDetails"></div>
+            </div>
+            
+            <div class="video-section" id="videoSection" style="display: none;">
+                <div class="video-container">
+                    <div class="video-switcher" id="videoSwitcher"></div>
+                    <div id="videoContainer"></div>
+                </div>
+                
+                <div class="timeline" id="timeline" onclick="seekToTime(event)">
+                    <div class="timeline-marker" id="timelineMarker"></div>
+                    <div id="timelineEvents"></div>
+                </div>
+            </div>
+            
+            <div class="controls" id="controls" style="display: none;">
+                <button class="play-pause-btn" id="playPauseBtn" onclick="togglePlayPause()">▶️ Воспроизведение</button>
+                <span class="time-display" id="timeDisplay">00:00 / 00:00</span>
+            </div>
+        </div>
+        
+        <div class="resize-handle" id="resizeHandle"></div>
+        
+        <div class="right-panel">
+            <div class="map-section">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Глобальные переменные
+        let gpsData = [];
+        let events = [];
+        let deviceInfo = {};
+        let frameTimes = [];
+        let startTime = 0;
+        let endTime = 0;
+        let duration = 0;
+        let map = null;
+        let trajectory = null;
+        let eventMarkers = [];
+        let currentMarker = null;
+        let videos = [];
+        let currentVideoIndex = 0;
+        let currentVideo = null;
+        let isPlaying = false;
+        let currentTime = 0;
+        
+        // Элементы DOM
+        const loadingEl = document.getElementById('loading');
+        const errorMessageEl = document.getElementById('errorMessage');
+        const deviceInfoEl = document.getElementById('deviceInfo');
+        const videoSectionEl = document.getElementById('videoSection');
+        const controlsEl = document.getElementById('controls');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const timeline = document.getElementById('timeline');
+        const timelineMarker = document.getElementById('timelineMarker');
+        const timelineEvents = document.getElementById('timelineEvents');
+        
+        // Инициализация карты
+        function initMap() {
+            if (map) {
+                map.remove();
+            }
+            
+            map = L.map('map').setView([55.7558, 37.6176], 10);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+        
+        // Загрузка данных с Яндекс.Диска
+        async function loadData() {
+            const url = document.getElementById('yandexUrl').value.trim();
+            if (!url) {
+                showError('Введите URL папки Яндекс.Диска');
+                return;
+            }
+            
+            showLoading(true);
+            hideError();
+            
+            try {
+                // Извлекаем ID папки из URL
+                const folderId = extractFolderId(url);
+                if (!folderId) {
+                    throw new Error('Не удалось извлечь ID папки из URL');
+                }
+                
+                // Получаем список файлов
+                const filesData = await getAllFilesFromFolder(folderId, url);
+                if (!filesData) {
+                    throw new Error('Не удалось получить список файлов');
+                }
+                
+                // Загружаем нужные файлы
+                const requiredFiles = ['detections.json', 'gps.csv', 'device.txt', 'times_full.json'];
+                const loadedData = {};
+                
+                for (const filename of requiredFiles) {
+                    if (filesData[filename]) {
+                        console.log(`Загружаем ${filename}...`);
+                        const content = await downloadFileContent(filesData[filename]);
+                        if (content !== null) {
+                            loadedData[filename] = content;
+                            console.log(`Загружен: ${filename}`);
+                        }
+                    } else {
+                        console.log(`Файл ${filename} не найден`);
+                    }
+                }
+                
+                // Парсим данные
+                if (loadedData['gps.csv']) {
+                    gpsData = parseGpsData(loadedData['gps.csv']);
+                }
+                
+                if (loadedData['detections.json']) {
+                    events = parseDetectionsData(loadedData['detections.json']);
+                }
+                
+                if (loadedData['device.txt']) {
+                    deviceInfo = parseDeviceInfo(loadedData['device.txt']);
+                }
+                
+                if (loadedData['times_full.json']) {
+                    const timesData = parseTimesData(loadedData['times_full.json']);
+                    frameTimes = timesData.frame_times || [];
+                    duration = timesData.duration || 0;
+                }
+                
+                // Получаем ссылки на видео
+                const videoUrls = await getVideoUrls(folderId, url);
+                
+                // Инициализируем интерфейс
+                initInterface();
+                
+                if (gpsData.length > 0) {
+                    initMapWithData();
+                }
+                
+                if (Object.keys(videoUrls).length > 0) {
+                    initVideoPlayers(videoUrls);
+                }
+                
+                showLoading(false);
+                
+            } catch (error) {
+                console.error('Ошибка загрузки:', error);
+                showError(`Ошибка загрузки: ${error.message}`);
+                showLoading(false);
+            }
+        }
+        
+        // Извлечение ID папки из URL
+        function extractFolderId(url) {
+            const match = url.match(/\/d\/([^\/]+)/);
+            return match ? match[1] : null;
+        }
+        
+        // Получение всех файлов из папки
+        async function getAllFilesFromFolder(folderId, url) {
+            try {
+                const folderPath = extractFolderPath(url);
+                console.log(`Путь к папке: ${folderPath}`);
+                
+                const apiUrl = generateApiUrl(folderId, folderPath);
+                console.log(`API URL: ${apiUrl}`);
+                
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const jsonResponse = await response.json();
+                if (!jsonResponse._embedded || !jsonResponse._embedded.items) {
+                    throw new Error('Не удалось получить список файлов');
+                }
+                
+                const filesData = {};
+                for (const item of jsonResponse._embedded.items) {
+                    if (item.type === 'file') {
+                        filesData[item.name] = item;
+                    }
+                }
+                
+                console.log(`Найдено файлов: ${Object.keys(filesData).length}`);
+                return filesData;
+                
+            } catch (error) {
+                console.error('Ошибка при получении списка файлов:', error);
+                return null;
+            }
+        }
+        
+        // Извлечение пути к папке из URL
+        function extractFolderPath(url) {
+            const match = url.match(/\/d\/[^\/]+(.*)/);
+            if (match) {
+                let path = match[1];
+                if (path.startsWith('/')) {
+                    path = path.substring(1);
+                }
+                return path ? '/' + path : '';
+            }
+            return '';
+        }
+        
+        // Генерация API URL
+        function generateApiUrl(folderId, path = '') {
+            const baseUrl = `https://yadi.sk/d/${folderId}`;
+            const key = encodeURIComponent(baseUrl);
+            const pathKey = encodeURIComponent(path);
+            return `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${key}&path=${pathKey}&limit=1000`;
+        }
+        
+        // Загрузка содержимого файла
+        async function downloadFileContent(fileInfo) {
+            try {
+                if (!fileInfo.file) {
+                    console.log('Нет ссылки для скачивания файла');
+                    return null;
+                }
+                
+                const response = await fetch(fileInfo.file);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.text();
+                
+            } catch (error) {
+                console.error('Ошибка при загрузке содержимого файла:', error);
+                return null;
+            }
+        }
+        
+        // Получение ссылок на видео
+        async function getVideoUrls(folderId, url) {
+            try {
+                const filesData = await getAllFilesFromFolder(folderId, url);
+                if (!filesData) {
+                    return {};
+                }
+                
+                const videoFiles = ['video', 'video_2'];
+                const videoUrls = {};
+                
+                for (const videoFilename of videoFiles) {
+                    if (filesData[videoFilename]) {
+                        const videoUrl = filesData[videoFilename].file;
+                        if (videoUrl) {
+                            videoUrls[videoFilename] = videoUrl;
+                            console.log(`Найдена ссылка на видео: ${videoFilename}`);
+                        }
+                    }
+                }
+                
+                return videoUrls;
+                
+            } catch (error) {
+                console.error('Ошибка при получении ссылок на видео:', error);
+                return {};
+            }
+        }
+        
+        // Парсинг GPS данных
+        function parseGpsData(csvData) {
+            const lines = csvData.trim().split('\n');
+            const headers = lines[0].split(',');
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                const row = {};
+                
+                headers.forEach((header, index) => {
+                    const value = values[index];
+                    if (header === 'time' || header === 'lat' || header === 'lon' || 
+                        header === 'accuracy' || header === 'altitude' || header === 'speed' || header === 'course') {
+                        row[header] = parseFloat(value) || null;
+                    } else {
+                        row[header] = value;
+                    }
+                });
+                
+                data.push(row);
+            }
+            
+            // Нормализуем время относительно первого timestamp
+            if (data.length > 0) {
+                const startTime = data[0].time;
+                for (const point of data) {
+                    point.time = point.time - startTime;
+                }
+            }
+            
+            return data;
+        }
+        
+        // Парсинг данных о событиях
+        function parseDetectionsData(jsonData) {
+            const data = JSON.parse(jsonData);
+            const events = [];
+            
+            // Обрабатываем ручные события
+            if (data.manualEvents) {
+                for (const event of data.manualEvents) {
+                    events.push({
+                        type: 'manual',
+                        event_type: event.event.type,
+                        time: event.time,
+                        lat: event.coordinate.latitude,
+                        lon: event.coordinate.longitude,
+                        custom_name: event.event.customName || ''
+                    });
+                }
+            }
+            
+            // Обрабатываем ямы
+            if (data.potholes) {
+                for (const pothole of data.potholes) {
+                    events.push({
+                        type: 'pothole',
+                        event_type: 'pothole',
+                        time: pothole.timestamp,
+                        lat: pothole.coord.latitude,
+                        lon: pothole.coord.longitude,
+                        confidence: pothole.conf
+                    });
+                }
+            }
+            
+            return events;
+        }
+        
+        // Парсинг информации об устройстве
+        function parseDeviceInfo(jsonData) {
+            return JSON.parse(jsonData);
+        }
+        
+        // Парсинг данных о временных метках
+        function parseTimesData(jsonData) {
+            const data = JSON.parse(jsonData);
+            
+            if (!data || data.length === 0) {
+                return { start_time: 0, end_time: 0, duration: 0, frame_times: [] };
+            }
+            
+            const startTime = data[0].time;
+            const endTime = data[data.length - 1].time;
+            const duration = endTime - startTime;
+            
+            const frameTimes = data.map(frame => ({
+                time: frame.time - startTime,
+                system_time: frame.system_time || 0
+            }));
+            
+            return {
+                start_time: startTime,
+                end_time: endTime,
+                duration: duration,
+                frame_times: frameTimes
+            };
+        }
+        
+        // Инициализация интерфейса
+        function initInterface() {
+            // Показываем секции
+            deviceInfoEl.style.display = 'block';
+            videoSectionEl.style.display = 'block';
+            controlsEl.style.display = 'block';
+            
+            // Заполняем информацию об устройстве
+            const deviceDetails = document.getElementById('deviceDetails');
+            deviceDetails.innerHTML = `
+                <p><strong>Устройство:</strong> ${deviceInfo.device || 'Неизвестно'}</p>
+                <p><strong>ОС:</strong> ${deviceInfo.os || 'Неизвестно'}</p>
+                <p><strong>Версия приложения:</strong> ${deviceInfo.app_version || 'Неизвестно'}</p>
+                <p><strong>Разрешение видео:</strong> ${deviceInfo.video_resolution || 'Неизвестно'}</p>
+                <p><strong>FPS:</strong> ${deviceInfo.fps || 'Неизвестно'}</p>
+                <p><strong>Режим записи:</strong> ${deviceInfo.record_mode || 'Неизвестно'}</p>
+            `;
+            
+            // Устанавливаем временной диапазон
+            if (duration > 0) {
+                startTime = 0;
+                endTime = duration;
+            } else if (gpsData.length > 0) {
+                startTime = 0;
+                endTime = Math.max(
+                    gpsData[gpsData.length - 1].time,
+                    events.length > 0 ? events[events.length - 1].time : gpsData[gpsData.length - 1].time
+                );
+            }
+            
+            // Создаем события на таймлайне
+            createTimelineEvents();
+        }
+        
+        // Создание событий на таймлайне
+        function createTimelineEvents() {
+            timelineEvents.innerHTML = '';
+            
+            for (const event of events) {
+                const leftPercent = ((event.time - startTime) / (endTime - startTime)) * 100;
+                const eventDiv = document.createElement('div');
+                eventDiv.className = `timeline-event event-${event.event_type}`;
+                eventDiv.style.left = `${leftPercent}%`;
+                eventDiv.title = event.event_type;
+                timelineEvents.appendChild(eventDiv);
+            }
+        }
+        
+        // Инициализация карты с данными
+        function initMapWithData() {
+            if (gpsData.length === 0) return;
+            
+            // Устанавливаем центр карты на первую точку GPS
+            map.setView([gpsData[0].lat, gpsData[0].lon], 15);
+            
+            // Создаем траекторию
+            const coordinates = gpsData.map(point => [point.lat, point.lon]);
+            trajectory = L.polyline(coordinates, {
+                color: '#007bff',
+                weight: 3,
+                opacity: 0.8
+            }).addTo(map);
+            
+            // Добавляем маркеры событий
+            addEventMarkers();
+            
+            // Подгоняем карту под траекторию
+            map.fitBounds(trajectory.getBounds());
+        }
+        
+        // Добавление маркеров событий
+        function addEventMarkers() {
+            // Очищаем предыдущие маркеры
+            eventMarkers.forEach(({ marker }) => map.removeLayer(marker));
+            eventMarkers = [];
+            
+            for (const event of events) {
+                const eventColor = getEventColor(event.event_type);
+                const marker = L.circleMarker([event.lat, event.lon], {
+                    radius: 8,
+                    color: eventColor,
+                    fillColor: eventColor,
+                    fillOpacity: 0.7,
+                    weight: 2
+                }).addTo(map);
+                
+                let popupContent = `
+                    <strong>${event.event_type}</strong><br>
+                    Время: ${formatTime(event.time)}<br>
+                    GPS: ${event.lat.toFixed(6)}, ${event.lon.toFixed(6)}<br>
+                `;
+                
+                if (event.confidence !== undefined) {
+                    popupContent += `Уверенность: ${(event.confidence * 100).toFixed(1)}%`;
+                }
+                
+                marker.bindPopup(popupContent);
+                eventMarkers.push({ marker, time: event.time });
+            }
+        }
+        
+        // Получение цвета события
+        function getEventColor(eventType) {
+            const colors = {
+                'pothole': '#dc3545',
+                'erased_markings': '#fd7e14',
+                'garbage_on_road': '#28a745',
+                'damaged_sign': '#6f42c1',
+                'manual': '#007bff',
+                'default': '#6c757d'
+            };
+            return colors[eventType] || colors['default'];
+        }
+        
+        // Инициализация видео плееров
+        function initVideoPlayers(videoUrls) {
+            const videoContainer = document.getElementById('videoContainer');
+            const videoSwitcher = document.getElementById('videoSwitcher');
+            
+            videoContainer.innerHTML = '';
+            videoSwitcher.innerHTML = '';
+            videos = [];
+            
+            const videoNames = Object.keys(videoUrls);
+            
+            for (let i = 0; i < videoNames.length; i++) {
+                const videoName = videoNames[i];
+                const videoUrl = videoUrls[videoName];
+                
+                // Создаем видео элемент
+                const video = document.createElement('video');
+                video.className = 'video-player';
+                video.id = `video${i + 1}`;
+                video.controls = true;
+                video.crossOrigin = 'anonymous';
+                
+                const source = document.createElement('source');
+                source.src = videoUrl;
+                source.type = 'video/mp4';
+                video.appendChild(source);
+                
+                videoContainer.appendChild(video);
+                videos.push(video);
+                
+                // Создаем кнопку переключения
+                if (videoNames.length > 1) {
+                    const button = document.createElement('button');
+                    button.className = `video-switch-btn ${i === 0 ? 'active' : ''}`;
+                    button.textContent = `Видео ${i + 1}`;
+                    button.onclick = () => switchVideo(i);
+                    videoSwitcher.appendChild(button);
+                }
+                
+                // Добавляем обработчики событий
+                video.addEventListener('timeupdate', () => {
+                    if (video === currentVideo) {
+                        currentTime = video.currentTime;
+                        updateMapMarker(currentTime);
+                        updateTimeline(currentTime);
+                        updateTimeDisplay();
+                    }
+                });
+                
+                video.addEventListener('play', () => {
+                    if (video === currentVideo) {
+                        isPlaying = true;
+                        playPauseBtn.textContent = '⏸️ Пауза';
+                    }
+                });
+                
+                video.addEventListener('pause', () => {
+                    if (video === currentVideo) {
+                        isPlaying = false;
+                        playPauseBtn.textContent = '▶️ Воспроизведение';
+                    }
+                });
+            }
+            
+            // Устанавливаем первое видео как активное
+            if (videos.length > 0) {
+                switchVideo(0);
+            }
+        }
+        
+        // Переключение видео
+        function switchVideo(index) {
+            if (videos[index]) {
+                // Скрываем все видео
+                videos.forEach(video => {
+                    video.style.display = 'none';
+                });
+                
+                // Показываем выбранное видео
+                videos[index].style.display = 'block';
+                currentVideoIndex = index;
+                currentVideo = videos[index];
+                
+                // Обновляем активную кнопку
+                document.querySelectorAll('.video-switch-btn').forEach((btn, i) => {
+                    btn.classList.toggle('active', i === index);
+                });
+                
+                // Синхронизируем время
+                if (currentVideo) {
+                    currentVideo.currentTime = currentTime;
+                }
+            }
+        }
+        
+        // Интерполяция GPS координат
+        function interpolateGPS(time) {
+            if (gpsData.length === 0) return [0, 0, 0];
+            
+            // Если время до первой точки
+            if (time <= gpsData[0].time) {
+                return [gpsData[0].lat, gpsData[0].lon, gpsData[0].course];
+            }
+            
+            // Если время после последней точки
+            if (time >= gpsData[gpsData.length - 1].time) {
+                const last = gpsData[gpsData.length - 1];
+                return [last.lat, last.lon, last.course];
+            }
+            
+            // Находим две ближайшие GPS точки
+            for (let i = 0; i < gpsData.length - 1; i++) {
+                if (gpsData[i].time <= time && gpsData[i + 1].time >= time) {
+                    const point1 = gpsData[i];
+                    const point2 = gpsData[i + 1];
+                    
+                    const ratio = (time - point1.time) / (point2.time - point1.time);
+                    const lat = point1.lat + (point2.lat - point1.lat) * ratio;
+                    const lon = point1.lon + (point2.lon - point1.lon) * ratio;
+                    
+                    // Интерполяция курса
+                    let course = null;
+                    if (point1.course !== null && point2.course !== null) {
+                        let courseDiff = point2.course - point1.course;
+                        if (courseDiff > 180) courseDiff -= 360;
+                        if (courseDiff < -180) courseDiff += 360;
+                        course = point1.course + courseDiff * ratio;
+                        if (course < 0) course += 360;
+                        if (course >= 360) course -= 360;
+                    } else if (point1.course !== null) {
+                        course = point1.course;
+                    } else if (point2.course !== null) {
+                        course = point2.course;
+                    }
+                    
+                    return [lat, lon, course];
+                }
+            }
+            
+            return [gpsData[0].lat, gpsData[0].lon, gpsData[0].course];
+        }
+        
+        // Расчет направления между двумя точками
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const lat1Rad = lat1 * Math.PI / 180;
+            const lat2Rad = lat2 * Math.PI / 180;
+            
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            
+            let bearing = Math.atan2(y, x) * 180 / Math.PI;
+            return (bearing + 360) % 360;
+        }
+        
+        // Обновление маркера на карте
+        function updateMapMarker(time) {
+            if (gpsData.length === 0) return;
+            
+            const [lat, lon, course] = interpolateGPS(time);
+            
+            // Удаляем предыдущий маркер
+            if (currentMarker) {
+                map.removeLayer(currentMarker);
+            }
+            
+            // Определяем направление движения
+            let direction = course;
+            if (direction === null || direction === undefined) {
+                // Находим ближайшие GPS точки для расчета направления
+                for (let i = 0; i < gpsData.length - 1; i++) {
+                    if (gpsData[i].time <= time && gpsData[i + 1].time >= time) {
+                        direction = calculateBearing(gpsData[i].lat, gpsData[i].lon, gpsData[i + 1].lat, gpsData[i + 1].lon);
+                        break;
+                    }
+                }
+                
+                if (direction === null || direction === undefined) {
+                    if (time <= gpsData[0].time && gpsData.length > 1) {
+                        direction = calculateBearing(gpsData[0].lat, gpsData[0].lon, gpsData[1].lat, gpsData[1].lon);
+                    } else if (time >= gpsData[gpsData.length - 1].time && gpsData.length > 1) {
+                        const lastIndex = gpsData.length - 1;
+                        direction = calculateBearing(gpsData[lastIndex - 1].lat, gpsData[lastIndex - 1].lon, gpsData[lastIndex].lat, gpsData[lastIndex].lon);
+                    } else {
+                        direction = 0;
+                    }
+                }
+            }
+            direction -= 90;
+            
+            // Создаем иконку стрелочки
+            const arrowIcon = L.divIcon({
+                html: `<div style="transform: rotate(${direction}deg); font-size: 30px; color: #dc3545; text-align: center; line-height: 1;">➤</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15],
+                className: 'arrow-marker'
+            });
+            
+            // Создаем маркер со стрелочкой
+            currentMarker = L.marker([lat, lon], { icon: arrowIcon }).addTo(map);
+        }
+        
+        // Обновление таймлайна
+        function updateTimeline(time) {
+            const progress = (time - startTime) / (endTime - startTime);
+            timelineMarker.style.left = (progress * 100) + '%';
+        }
+        
+        // Форматирование времени
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+        }
+        
+        // Обновление отображения времени
+        function updateTimeDisplay() {
+            const current = formatTime(currentTime);
+            const total = formatTime(endTime - startTime);
+            timeDisplay.textContent = `${current} / ${total}`;
+        }
+        
+        // Переключение воспроизведения
+        function togglePlayPause() {
+            if (currentVideo) {
+                if (isPlaying) {
+                    currentVideo.pause();
+                } else {
+                    currentVideo.play();
+                }
+            }
+        }
+        
+        // Переход к времени по клику на таймлайн
+        function seekToTime(event) {
+            const rect = timeline.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const progress = x / rect.width;
+            const time = startTime + progress * (endTime - startTime);
+            
+            currentTime = time;
+            if (currentVideo) {
+                currentVideo.currentTime = time;
+            }
+            updateMapMarker(time);
+            updateTimeline(time);
+            updateTimeDisplay();
+        }
+        
+        // Переключение информации об устройстве
+        function toggleDeviceInfo() {
+            const details = document.getElementById('deviceDetails');
+            details.classList.toggle('show');
+        }
+        
+        // Показать/скрыть загрузку
+        function showLoading(show) {
+            loadingEl.classList.toggle('show', show);
+        }
+        
+        // Показать ошибку
+        function showError(message) {
+            errorMessageEl.textContent = message;
+            errorMessageEl.classList.add('show');
+        }
+        
+        // Скрыть ошибку
+        function hideError() {
+            errorMessageEl.classList.remove('show');
+        }
+        
+        // Обработчик изменения размера панелей
+        let isResizing = false;
+        const resizeHandle = document.getElementById('resizeHandle');
+        const leftPanel = document.querySelector('.left-panel');
+        const rightPanel = document.querySelector('.right-panel');
+        
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+        });
+        
+        function handleResize(e) {
+            if (!isResizing) return;
+            
+            const containerWidth = document.querySelector('.container').offsetWidth;
+            const leftWidth = (e.clientX / containerWidth) * 100;
+            const rightWidth = 100 - leftWidth;
+            
+            if (leftWidth > 20 && rightWidth > 20) {
+                leftPanel.style.flex = leftWidth;
+                rightPanel.style.flex = rightWidth;
+            }
+        }
+        
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener('mousemove', handleResize);
+            document.removeEventListener('mouseup', stopResize);
+        }
+        
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+        });
+    </script>
+</body>
+</html>

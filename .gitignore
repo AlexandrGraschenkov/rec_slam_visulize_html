@@ -4,6 +4,8 @@
 # Xcode
 htmls
 index.html
+!one_html_page/index.html
+
 example_record*
 .vscode
 __pycache__
