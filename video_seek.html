@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Seek Player</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .parameters {
+            background: #ecf0f1;
+            padding: 15px;
+            border-bottom: 1px solid #bdc3c7;
+        }
+        
+        .param-item {
+            display: flex;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .param-label {
+            font-weight: bold;
+            min-width: 120px;
+            color: #2c3e50;
+        }
+        
+        .param-value {
+            flex: 1;
+            background: white;
+            padding: 8px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+        }
+        
+        .video-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .controls {
+            padding: 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            text-align: center;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Video Seek Player</h1>
+            <p>Автоматическая перемотка видео на указанное время</p>
+        </div>
+        
+        <div class="parameters">
+            <h3>Параметры:</h3>
+            <div class="param-item">
+                <div class="param-label">Ссылка на Yandex Disk:</div>
+                <div class="param-value" id="yandexUrl">https://disk.yandex.ru/d/OXJEgaEPF9f6YA/Default/2025-10-21_18-10-43_CBEC188A-36A/video</div>
+            </div>
+            <div class="param-item">
+                <div class="param-label">Время перемотки:</div>
+                <div class="param-value" id="seekTime">15 секунд</div>
+            </div>
+        </div>
+        
+        <div class="video-container">
+            <iframe 
+                id="videoFrame"
+                class="video-iframe"
+                src=""
+                allowfullscreen>
+            </iframe>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" onclick="loadVideo()">Загрузить видео</button>
+            <button class="btn" onclick="seekToTime()">Перемотать на время</button>
+            <button class="btn" onclick="reloadVideo()">Перезагрузить</button>
+            <div class="status" id="status" style="display: none;">
+                Готово к воспроизведению
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Параметры видео
+        const YANDEX_URL = 'https://disk.yandex.ru/d/OXJEgaEPF9f6YA/Default/2025-10-21_18-10-43_CBEC188A-36A/video';
+        const SEEK_TIME = 15; // секунды
+        
+        let videoLoaded = false;
+        
+        function loadVideo() {
+            const iframe = document.getElementById('videoFrame');
+            iframe.src = YANDEX_URL;
+            videoLoaded = true;
+            
+            showStatus('Видео загружено. Нажмите "Перемотать на время" для перехода к нужному моменту.');
+        }
+        
+        function seekToTime() {
+            if (!videoLoaded) {
+                showStatus('Сначала загрузите видео!', 'error');
+                return;
+            }
+            
+            const iframe = document.getElementById('videoFrame');
+            
+            // Попытка отправить команду перемотки в iframe
+            try {
+                // Отправляем сообщение в iframe для перемотки
+                iframe.contentWindow.postMessage({
+                    action: 'seek',
+                    time: SEEK_TIME
+                }, '*');
+                
+                showStatus(`Перемотка на ${SEEK_TIME} секунд выполнена`);
+            } catch (error) {
+                showStatus('Не удалось выполнить перемотку. Попробуйте перезагрузить видео.', 'error');
+            }
+        }
+        
+        function reloadVideo() {
+            const iframe = document.getElementById('videoFrame');
+            iframe.src = '';
+            videoLoaded = false;
+            hideStatus();
+        }
+        
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.style.display = 'block';
+            
+            if (type === 'error') {
+                status.style.background = '#f8d7da';
+                status.style.borderColor = '#f5c6cb';
+                status.style.color = '#721c24';
+            } else {
+                status.style.background = '#d4edda';
+                status.style.borderColor = '#c3e6cb';
+                status.style.color = '#155724';
+            }
+        }
+        
+        function hideStatus() {
+            document.getElementById('status').style.display = 'none';
+        }
+        
+        // Автоматическая загрузка при открытии страницы
+        window.addEventListener('load', function() {
+            loadVideo();
+        });
+        
+        // Обработка сообщений от iframe
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'videoReady') {
+                showStatus('Видео готово к воспроизведению');
+            }
+        });
+    </script>
+</body>
+</html>
